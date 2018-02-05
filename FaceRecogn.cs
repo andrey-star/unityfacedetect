@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 
 public partial class VideoCapture : MonoBehaviour
@@ -11,7 +11,7 @@ public partial class VideoCapture : MonoBehaviour
     {
 
         int imageAverage = 0;
-        if (_CaptureCounter % updateFrequency == 0 && _CaptureCounter > updateFrequency)
+        if (_CaptureCounter % updateFrequency == 0 && _CaptureCounter > updateFrequency && w != 0 && h != 0)
         {
             /*список изменений
 
@@ -21,31 +21,37 @@ public partial class VideoCapture : MonoBehaviour
             int width = w;
             int height = h;
             int maxNumber = 2;
-            int starterRowNumber = 12;
+            int starterRowNumber = 10;
             int starterRowAddition = 5;
             int row = height / (starterRowNumber + (starterRowAddition * 2 - 1)); //хорошо бы теперь определять не через rowAddition
             int rowAddition = starterRowAddition;
             int rowNumber = starterRowNumber;
-            if (facesize * 4 / 3 / row - 1 < 12 && facesize != 0)
+            bool withStarters = true;
+
+            if (facesize * 4 / 3 / row - 1 < starterRowNumber && facesize != 0 && starterRowAddition + starterRowNumber - facesize * 4 / 3 / row + levelOfRows > 0)
             {
                 rowNumber = facesize * 4 / 3 / row;
                 rowAddition = starterRowAddition + starterRowNumber - rowNumber;
+                withStarters = false;
             }
-            //Debug.Log (rowNumber);
+
             int[] average = new int[rowNumber];
             int[] faceSizeArray = new int[rowNumber];
-            //	Debug.Log (facesize * 4 / 3 / row);
-            // row равен нулю если камера не работает, дальше мы делим на row => exception
             int bannedRows = 0;
-            //snap_cor = snap;
-            //snap_bw = snap;
+            float updateFrequencyMultiplier = 0.015f;
+
 
             Graphics.CopyTexture(snap, snap_cor);
             Graphics.CopyTexture(snap, snap_bw);
-            //Graphics.CopyTexture(snap, snapCanny);
 
+            //one more levelOfRows fixing
+            while (rowAddition + levelOfRows < 0)
+            {
+                levelOfRows++;
+            }
             int sideLength = 8;
             bool[,] allowedForMax = new bool[(width / sideLength), (height / sideLength)];// можно сделать квадратик поменьше
+
             for (int i = 0; i < width / sideLength; i++)
             {
                 for (int j = 0; j < height / sideLength; j++)
@@ -57,7 +63,7 @@ public partial class VideoCapture : MonoBehaviour
                         {
                             float scale_prev = snap_prev.GetPixel(i * sideLength + i1, j * sideLength + j1).grayscale;
                             float scale_cur = snap.GetPixel(i * sideLength + i1, j * sideLength + j1).grayscale;
-                            if (System.Math.Abs(scale_cur - scale_prev) > updateFrequency * 0.02f
+                            if (System.Math.Abs(scale_cur - scale_prev) > updateFrequency * updateFrequencyMultiplier//можно сделать зависимость от кол-ва изм пикселей (перебор 76800))))
                                 || System.Math.Abs(snap_prev.GetPixel(i * sideLength + i1, j * sideLength + j1).r - snap.GetPixel(i * sideLength + i1, j * sideLength + j1).r) > 30
                                 || System.Math.Abs(snap_prev.GetPixel(i * sideLength + i1, j * sideLength + j1).g - snap.GetPixel(i * sideLength + i1, j * sideLength + j1).g) > 30
                                 || System.Math.Abs(snap_prev.GetPixel(i * sideLength + i1, j * sideLength + j1).b - snap.GetPixel(i * sideLength + i1, j * sideLength + j1).b) > 30
@@ -69,19 +75,26 @@ public partial class VideoCapture : MonoBehaviour
                         }
                     }
                     if (greyChangesAmount > sideLength * 2)
-                    {//здесь sidelength не обоснован, но из 100 я брал 10 и было неплохо, но и 20 хорошо
+                    {//здесь *2 не обосновано, но из 100 я брал 10 и было неплохо, но и 20 хорошо
                         allowedForMax[i, j] = true;
-                        /*
-						for (int idraw = 0; idraw < sideLength; idraw++) {
-							for (int jdraw = 0; jdraw < sideLength; jdraw++) {
-								snap_cor.SetPixel (i * sideLength + idraw, j * sideLength + jdraw, Color.red);
-							}
-						}
-						*/
+
+                        for (int idraw = 0; idraw < sideLength; idraw++)
+                        {
+                            for (int jdraw = 0; jdraw < sideLength; jdraw++)
+                            {
+                                //	snap_cor.SetPixel (i * sideLength + idraw, j * sideLength + jdraw, Color.red);
+                            }
+                        }
+
                     }
                 }
             }
+
+            //	snap_cor.Apply ();
+
+
             rowAddition += levelOfRows;
+            //Debug.Assert (rowAddition >= 0);
             for (int irow = rowAddition * row; irow / row < rowNumber + rowAddition; irow += row)
             {
                 float[] greys = new float[width];
@@ -97,7 +110,6 @@ public partial class VideoCapture : MonoBehaviour
                 }
 
                 der = Derivatives(width, greys);
-                //der = SmartDerivatives(width, irow, snap);
 
                 for (int i = 0; i < der.Length; i++)
                 {
@@ -112,12 +124,13 @@ public partial class VideoCapture : MonoBehaviour
                     float flag_ones = 0;
                     for (int i = 0; i < greys.Length; i++)
                     {
-                        if ((System.Math.Abs(greys[i] - greys_prev[i]) > updateFrequency * 0.02f
-                            /*
-							|| System.Math.Abs(snap_prev.GetPixel(i, irow).r - snap.GetPixel(i, irow).r) > 30
-							||System.Math.Abs(snap_prev.GetPixel(i, irow).g - snap.GetPixel(i, irow).g) > 30
-							|| System.Math.Abs(snap_prev.GetPixel(i, irow).b - snap.GetPixel(i, irow).b) > 30
-							*/) && allowedForMax[(int)(i / sideLength), (int)irow / sideLength])
+                        if ((System.Math.Abs(greys[i] - greys_prev[i]) > updateFrequency * updateFrequencyMultiplier //вопрос с изменением цвета открыт
+                                                                                                                     /*
+                                                                                                                     || System.Math.Abs(snap_prev.GetPixel(i, irow).r - snap.GetPixel(i, irow).r) > 30
+                                                                                                                     ||System.Math.Abs(snap_prev.GetPixel(i, irow).g - snap.GetPixel(i, irow).g) > 30
+                                                                                                                     || System.Math.Abs(snap_prev.GetPixel(i, irow).b - snap.GetPixel(i, irow).b) > 30
+                                                                                                                     */
+                        ) && allowedForMax[(int)(i / sideLength), (int)irow / sideLength])
                         {
                             greys_prev[i] = 1;
                         }
@@ -163,7 +176,16 @@ public partial class VideoCapture : MonoBehaviour
                         }
                         for (int k = 0; k < i; k++)
                         {
-                            if (j <= maxIcol[k] + 10 && j >= maxIcol[k] - 10)
+                            if (j == maxIcol[k] - 1 || j == maxIcol[k] + 1 ||
+                                j == maxIcol[k] - 2 || j == maxIcol[k] + 2 ||
+                                j == maxIcol[k] - 3 || j == maxIcol[k] + 3 ||
+                                j == maxIcol[k] - 4 || j == maxIcol[k] + 4 ||
+                                j == maxIcol[k] - 5 || j == maxIcol[k] + 5 ||
+                                j == maxIcol[k] - 6 || j == maxIcol[k] + 6 ||
+                                j == maxIcol[k] - 7 || j == maxIcol[k] + 7 ||
+                                j == maxIcol[k] - 8 || j == maxIcol[k] + 8 ||
+                                j == maxIcol[k] - 9 || j == maxIcol[k] + 9 ||
+                                j == maxIcol[k] - 10 || j == maxIcol[k] + 10)
                             {
                                 banned = true;
                                 break;
@@ -205,7 +227,7 @@ public partial class VideoCapture : MonoBehaviour
                         average[(irow / row) - rowAddition] = 0;
                         break;
                     }
-                    if (i == maxNumber - 1)
+                    if (i == 1)
                     {
                         average[(irow / row) - rowAddition] = summMaxIcol / (maxNumber);
                     }
@@ -221,7 +243,7 @@ public partial class VideoCapture : MonoBehaviour
 
                 for (int i = 0; i < width; i++)
                 {
-                    snap_cor.SetPixel(i, irow, Color.green);
+                    //snap_cor.SetPixel (i, irow, Color.green);
                 }
 
                 for (int i = 0; i < maxNumber; i++)
@@ -232,7 +254,7 @@ public partial class VideoCapture : MonoBehaviour
                         {
                             if (irow > 0 && irow < height && maxIcol[i] > 0 && maxIcol[i] < width)
                             {
-                                snap_cor.SetPixel(maxIcol[i] + j, irow + k, Color.red);
+                                //		snap_cor.SetPixel (maxIcol [i] + j, irow + k, Color.red);
                             }
 
 
@@ -245,12 +267,12 @@ public partial class VideoCapture : MonoBehaviour
                     {
                         if (irow > 0 && irow < height && average[irow / (row) - rowAddition] > 0 && average[irow / (row) - rowAddition] < width)
                         {
-                            snap_cor.SetPixel(average[irow / (row) - rowAddition] + j, irow + k, Color.yellow);
+                            //		snap_cor.SetPixel (average [irow / (row) - rowAddition] + j, irow + k, Color.yellow);
                         }
                     }
                 }
 
-                snap_cor.SetPixel(0, 0, Color.red);
+                //snap_cor.SetPixel(0, 0, Color.red);
 
                 faceSizeArray[(irow / row) - rowAddition] = Mathf.Abs(maxIcol[0] - maxIcol[1]);
                 //for testing
@@ -268,6 +290,7 @@ public partial class VideoCapture : MonoBehaviour
 				}
 				//System.IO.File.WriteAllBytes(_SavePath + _CaptureCounter.ToString() + ".png", snap_cor.EncodeToPNG());
 			*/
+
                 //row work ended
 
             }
@@ -275,26 +298,50 @@ public partial class VideoCapture : MonoBehaviour
 
             //checking current rows of being far away from others
             bool[] banned_far_away = new bool[rowNumber];
+            int zerosAmongRows = 0;
             for (int i = 0; i < rowNumber; i++)
             {
-                int summ_without = 0;
-                for (int j = 0; j < rowNumber; j++)
+                if (average[i] == 0)
                 {
-                    if (i != j)
-                    {
-                        summ_without += average[j];
-                    }
-                }
-                if (System.Math.Abs((summ_without / (rowNumber - 1)) - average[i]) > (width / 4))
-                {// ?????????????
-                 //Debug.Log(_CaptureCounter + " row " + i + " " + System.Math.Abs((summ_without / (rowNumber - 1))) + " " + average[i]);
-                    banned_far_away[i] = true;
-                }
-                else
-                {
-                    //Debug.Log(_CaptureCounter + " row " + i + " was not banned" + "(" + System.Math.Abs((summ_without / (rowNumber - 1))) + " ; " + average[i] + ")");
+                    zerosAmongRows++;
                 }
             }
+            if (rowNumber - 1 - zerosAmongRows > 0)
+            {
+                for (int i = 0; i < rowNumber; i++)
+                {
+                    if (average[i] == 0)
+                    {
+                        continue;
+                    }
+                    int summ_without = 0;
+                    for (int j = 0; j < rowNumber; j++)
+                    {
+                        if (i != j)
+                        {
+                            summ_without += average[j];
+                        }
+                    }
+
+                    if (System.Math.Abs((summ_without / (rowNumber - 1 - zerosAmongRows)) - average[i]) > (width / 10))
+                    {// ?????????????
+                     //Debug.Log(_CaptureCounter + " row " + i + " " + System.Math.Abs((summ_without / (rowNumber - 1))) + " " + average[i]);
+                        banned_far_away[i] = true;
+                    }
+                    else
+                    {
+                        //Debug.Log(_CaptureCounter + " row " + i + " was not banned" + "(" + System.Math.Abs((summ_without / (rowNumber - 1))) + " ; " + average[i] + ")");
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < rowNumber; i++)
+                {
+                    banned_far_away[i] = true;
+                }
+            }
+
 
 
             for (int irow = rowAddition * row; irow / row < rowNumber + rowAddition; irow += row)
@@ -307,12 +354,13 @@ public partial class VideoCapture : MonoBehaviour
                         {
                             if (banned_far_away[irow / row - rowAddition])
                             {
-                                snap_cor.SetPixel(average[irow / (row) - rowAddition] + j, irow + k, Color.black);
+                                //	snap_cor.SetPixel (average [irow / (row) - rowAddition] + j, irow + k, Color.black);
                             }
                         }
                     }
                 }
             }
+
             for (int i = 0; i < rowNumber; i++)
             {
                 if (banned_far_away[i])
@@ -342,11 +390,10 @@ public partial class VideoCapture : MonoBehaviour
                 {
                     for (int i = 0; i < width; i++)
                     {
-                        snap_cor.SetPixel(i, irow1, Color.green);
+                        //snap_cor.SetPixel (i, irow1, Color.green);
                     }
                 }
-                snap_cor.SetPixel(0, 0, Color.red);
-                snap_cor.Apply();
+                //snap_cor.Apply();
                 return 0;
             }
             imageAverage /= (rowNumber - bannedRows);
@@ -356,16 +403,17 @@ public partial class VideoCapture : MonoBehaviour
             {
                 for (int k = -2; k <= 2; k++)
                 {
-                    snap_cor.SetPixel(imageAverage + j, height / 2 + k, Color.magenta);
+                    //	snap_cor.SetPixel (imageAverage + j, (rowAddition + (rowNumber - 1)/2)*row  + k, Color.magenta);
                 }
             }
 
+
             //facesize
-            //также сделать статичным нужно для реализации с рамкой
             //еще можно округлять в сторону предыдущего размера
             //все это должно работать хорошо, если не будет рандомных максимумов где попало(решено)
             //не стоит опираться на те значения, которые были до stop'а
             //совершать действия опираяь на  размер только при использовании нескольких его значений
+            //массив с facesize'ами размера 3 или 5, на основании которых считается окончательный facesize
             int rowWithSize = 0; // for testing
             int counterForGoodAmountOfRows = 0;
             for (int i = rowNumber - 3; i > 0; i--)
@@ -386,31 +434,71 @@ public partial class VideoCapture : MonoBehaviour
                 int next = faceSizeArray[i - 1];
                 int current = faceSizeArray[i];
                 int previous = faceSizeArray[i + 1];
-                if (Mathf.Abs((previous + current) / 2 - next) > width / 25)
+                if (Mathf.Abs((previous + current) / 2 - next) > width / 20)
                 {
                     continue;
                 }
-                if (Mathf.Abs((previous + next) / 2 - current) > width / 25)
+                if (Mathf.Abs((previous + next) / 2 - current) > width / 20)
                 {
                     continue;
                 }
-                if (Mathf.Abs((next + current) / 2 - previous) > width / 25)
+                if (Mathf.Abs((next + current) / 2 - previous) > width / 20)
                 {
                     continue;
                 }
-                if (average[i - 1] != 0 && average[i] != 0 && average[i + 1] != 0)
-                {//можно сделать бан при изменении больше чем на 10
-                    if (System.Math.Abs(facesize - (previous + current + next) / 3) < 10 || facesize == 0)
-                    {
-                        facesize = (previous + current + next) / 3;
-                        rowWithSize = i;
-                        break;
-                    }
+                int numberOfZeroRows = 0;
+                if (average[i - 1] == 0)
+                {
+                    numberOfZeroRows++;
+                }
+                if (average[i] == 0)
+                {
+                    numberOfZeroRows++;
+                }
+                if (average[i + 1] == 0)
+                {
+                    numberOfZeroRows++;
+                }
+                if (numberOfZeroRows < 2 && (previous + current + next) / 3 >= width / 4)
+                {//можно сделать бан при изменении больше чем на 10, (позже) плохая идея, надо что-то умнее
+                    facesize = (previous + current + next) / 3 - numberOfZeroRows;
+                    rowWithSize = i;
+                    break;
                 }
             }
-            //Debug.Log("size " + facesize + " row " + (rowWithSize + 1));
+
+
+
+            //fixing facesize using lastNfacesizes
+            int facesizesActive = 0;
+            if (facesize != 0)
+            {
+                facesizesActive++;
+            }
+            for (int i = 0; i < lastNfacesizes.Length - 1; i++)
+            {
+                lastNfacesizes[i] = lastNfacesizes[i + 1];
+                if (lastNfacesizes[i] != 0)
+                {
+                    facesizesActive++;
+                }
+            }
+            lastNfacesizes[lastNfacesizes.Length - 1] = facesize;
+
+            if (_CaptureCounter > updateFrequency * (lastNfacesizes.Length + 1) && facesizesActive == lastNfacesizes.Length)
+            {
+                int summ = 0;
+                for (int i = 0; i < lastNfacesizes.Length; i++)
+                {
+                    summ += lastNfacesizes[i];
+                }
+                facesize = summ / lastNfacesizes.Length;
+            }
+            //Debug.Log(facesize);
+
+            //	Debug.Log ("size " + facesize + " row " + (rowWithSize + 1));
             //facesize end
-            //right eye position (left in reality) or just searching for parts
+
             // надо попробовать что-то с красным цветом делать
             //upperBorder searching
             int upperBorder = height;
@@ -499,6 +587,11 @@ public partial class VideoCapture : MonoBehaviour
 				}
 			}
 			*/
+            //eyes position searcher
+
+
+
+
 
             //tryna lay a rectangle on face
 
@@ -506,38 +599,52 @@ public partial class VideoCapture : MonoBehaviour
             //up
             for (int i = imageAverage - facesize / 2; i <= imageAverage + facesize / 2; i++)
             {
-                snap_cor = SetBigPixel(snap_cor, i, (rowAddition + rowNumber - 1) * row, Color.blue);
+                if (!snap_cor.GetPixel(imageAverage + facesize / 2, i).Equals(Color.yellow))
+                {
+                    SetBigPixel(snap_cor, i, (rowAddition + rowNumber - 1) * row, Color.blue);
+                }
             }
             //down
             for (int i = imageAverage - facesize / 2; i <= imageAverage + facesize / 2; i++)
             {
-                snap_cor = SetBigPixel(snap_cor, i, (rowAddition + rowNumber - 1) * row - faceheight, Color.blue);
+                if (!snap_cor.GetPixel(imageAverage + facesize / 2, i).Equals(Color.yellow))
+                {
+                    SetBigPixel(snap_cor, i, (rowAddition + rowNumber - 1) * row - faceheight, Color.blue);
+                }
             }
             //left
             for (int i = (int)((rowAddition + rowNumber - 1) * row - faceheight); i <= (int)((rowAddition + rowNumber - 1) * row); i++)
             {
-                snap_cor = SetBigPixel(snap_cor, imageAverage - facesize / 2, i, Color.blue);
+                if (!snap_cor.GetPixel(imageAverage + facesize / 2, i).Equals(Color.yellow))
+                {
+                    SetBigPixel(snap_cor, imageAverage - facesize / 2, i, Color.blue);
+                }
             }
             //right
             for (int i = (int)((rowAddition + rowNumber - 1) * row - faceheight); i <= (int)((rowAddition + rowNumber - 1) * row); i++)
             {
-                snap_cor = SetBigPixel(snap_cor, imageAverage + facesize / 2, i, Color.blue);
+                if (!snap_cor.GetPixel(imageAverage + facesize / 2, i).Equals(Color.yellow))
+                {
+                    SetBigPixel(snap_cor, imageAverage + facesize / 2, i, Color.blue);
+                }
             }
 
             //levelOfRows fixing
-
-            float averageForLevel = average[rowNumber - 1];
-            float size = faceSizeArray[rowNumber - 1];
-            if (averageForLevel == 0 && size == 0 && (rowAddition > 2) && starterRowAddition + starterRowNumber - facesize * 4 / 3 / row > 0)
+            if (!withStarters)
             {
-                levelOfRows--;
+                float averageForLevel = average[rowNumber - 1];
+                float size = faceSizeArray[rowNumber - 1];
+                if (averageForLevel == 0 && size == 0 && starterRowAddition + starterRowNumber - facesize * 4 / 3 / row + (levelOfRows - 1) > 0)
+                {
+                    levelOfRows--;
+                }
+                else if (averageForLevel != 0 && size > facesize * 0.75f && (rowAddition + rowNumber - 1) * row + levelOfRows + 1 < height - row
+                        || starterRowAddition + starterRowNumber - facesize * 4 / 3 / row + levelOfRows < 0)
+                {
+                    levelOfRows++;
+                }
             }
-            else if (averageForLevel != 0 && size > facesize * 0.75f && (rowAddition + rowNumber - 1) * row < height - 2 * row)
-            {
-                levelOfRows++;
-            }
-
-            snap_cor.Apply();
+            //snap_cor.Apply();
             return imageAverage;
         }
         else
@@ -548,18 +655,17 @@ public partial class VideoCapture : MonoBehaviour
 
     //transform.RotateAround(new Vector3(0, 0, 12), Vector3.up, imageAverage);
 
-    public Texture2D SetBigPixel(Texture2D changing, int x, int y, Color color)
+    public void SetBigPixel(Texture2D snap, int x, int y, Color color)
     {
         for (int j = -1; j <= 1; j++)
         {
             for (int k = -1; k <= 1; k++)
             {
-                changing.SetPixel(x + j, y + k, color);
+               // snap.SetPixel(x + j, y + k, color);
             }
         }
-        return changing;
     }
-    public float[] Derivatives(int count, float[] val)
+    public static float[] Derivatives(int count, float[] val)
     {
 
         //Вычисление производных
@@ -584,146 +690,6 @@ public partial class VideoCapture : MonoBehaviour
         return deriv;
 
 
-    }
-
-    public float[] derivatives(int count, int row, Texture2D texture)
-    {
-
-        float[,] stripes = new float[count, 5];
-
-        for (int i = 0; i < stripes.GetLength(0); i++)
-        {
-            for (int j = 0; j < stripes.GetLength(1); j++)
-            {
-                stripes[i, j] = texture.GetPixel(i, row + j - 2).grayscale;
-            }
-        }
-
-        int[,] blurMatrix = new int[,] { { 1, 2, 1 }, { 2, 4, 2 }, { 1, 2, 1 } };
-
-        float[,] blurStripes = stripes;
-
-        stripes = matrixApply(stripes, blurMatrix);
-
-        for (int i = 1; i < stripes.GetLength(0) - 1; i++)
-        {
-            for (int j = 1; j < stripes.GetLength(1) - 1; j++)
-            {
-                blurStripes[i, j] = stripes[i - 1, j - 1];
-            }
-        }
-
-        int[,] edgeXMatrix = new int[,] { { -1, 0, 1 }, { -2, 0, 2 }, { -1, 0, 1 } };
-        int[,] edgeYMatrix = new int[,] { { 1, 2, 1 }, { 0, 0, 0 }, { -1, -2, -1 } };
-
-        float[,] stripesX = matrixApply(blurStripes, edgeXMatrix);
-        float[,] stripesY = matrixApply(blurStripes, edgeYMatrix);
-
-        for (int i = 0; i < stripes.GetLength(0); i++)
-        {
-            for (int j = 0; j < stripes.GetLength(1); j++)
-            {
-                float dx = stripesX[i, j];
-                float dy = stripesY[i, j];
-                stripes[i, j] = Mathf.Sqrt(dx * dx + dy * dy);
-                //snapCanny.SetPixel(i, row - 1 + j, new Color(stripes[i, j], stripes[i, j], stripes[i, j]));
-            }
-        }
-
-        //snapCanny.Apply();
-        //Debug.Log(stripes.GetLength(0) + " " + stripes.GetLength(1));
-
-        Texture2D stripesXY = new Texture2D(stripesX.GetLength(0), stripesX.GetLength(1));
-        Graphics.CopyTexture(applyCanny(stripesX, stripesY), stripesXY);
-        stripesXY.Apply();
-
-        float[] res = new float[stripesXY.width];
-        for (int i = 0; i < stripesXY.width; i++)
-        {
-            res[i] = stripesXY.GetPixel(i, 1).grayscale;
-            //snap_bw.SetPixel(i, row, new Color(res[i], res[i], res[i]));
-        }
-
-        //snap_bw.Apply();
-        return res;
-
-    }
-
-    public Texture2D apply(float[,] snapX, float[,] snapY)
-    {
-
-        int width = snapX.GetLength(0);
-        int height = snapX.GetLength(1);
-        float[,] angles = new float[width, height];
-        Texture2D snapXY = new Texture2D(width, height);
-        for (int i = 0; i < width; i++)
-        {
-            for (int j = 0; j < height; j++)
-            {
-                float dx = snapX[i, j];
-                float dy = snapY[i, j];
-                float val = Mathf.Sqrt(dx * dx + dy * dy);
-                float hue = Mathf.Atan2(dy, dx) + Mathf.PI;
-                float hue_angle = hue * 180 / Mathf.PI;
-                angles[i, j] = hue_angle;
-                snapXY.SetPixel(i, j, new Color(val, val, val));
-            }
-        }
-        snapXY.Apply();
-        float textureBrightness = brightness(snap);
-        if (textureBrightness < 10000)
-        {
-            minCanny = 20;
-        }
-        else if (textureBrightness > 20000)
-        {
-            minCanny = 50;
-        }
-
-        //Debug.Log(minCanny + " " + textureBrightness);
-        for (int i = 0; i < width; i++)
-        {
-            for (int j = 0; j < height; j++)
-            {
-                if (i == 50 && j == 50)
-                {
-                }
-                if (!localMax(i, j, snapXY, angles[i, j]) || snapXY.GetPixel(i, j).grayscale * 255 < minCanny)
-                {
-                    snapXY.SetPixel(i, j, new Color(0, 0, 0));
-                }
-            }
-        }
-        snapXY.Apply();
-        return snapXY;
-    }
-
-    public static float[,] matrixApply(float[,] texture, int[,] matrix)
-    {
-
-        int width = texture.GetLength(0);
-        int height = texture.GetLength(1);
-        int side = (matrix.GetLength(0) / 2);
-        float[,] applied = new float[width - 2, height - 2];
-        int matrixSize = sumIntInArr(matrix);
-        for (int i = side; i < width - side; i++)
-        {
-            for (int j = side; j < height - side; j++)
-            {
-                float sum = 0;
-                for (int k = -side; k <= side; k++)
-                {
-                    for (int q = -side; q <= side; q++)
-                    {
-                        sum += texture[i + k, j + q] * matrix[side + q, side + k];
-                    }
-                }
-                sum /= (matrixSize == 0 ? 1 : matrixSize);
-
-                applied[i - side, j - side] = sum;
-            }
-        }
-        return applied;
     }
 
 }
