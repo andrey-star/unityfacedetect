@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
 
@@ -50,7 +50,7 @@ public partial class VideoCapture : MonoBehaviour
     private string _SavePath = "D:/WebCam/";
     private int _CaptureCounter = 0;
     float angle = 0;
-    int rotateSpeed = 10;
+    int rotateSpeed = 5;
     public int prevMoment = 0;
     public int curMoment = 0;
     public string[] strArr = new string[240];
@@ -70,6 +70,9 @@ public partial class VideoCapture : MonoBehaviour
     public int minCanny = 50;
     public int blurMatrixSum = 16;
     public int levelOfRows = 0;
+    public int[] lastNfacesizes;
+    public GameObject body;
+    public bool showCamera = true;
 
     //Initialization 
     void Start()
@@ -80,12 +83,16 @@ public partial class VideoCapture : MonoBehaviour
         rawimage.texture = _CamTex;
         rawimage.material.mainTexture = _CamTex;
         _CamTex.Play();
-        snap = new Texture2D(_CamTex.width, _CamTex.height);
         edgeSobel = new Texture2D(_CamTex.width, _CamTex.height);
         snap1 = new DoubleTexture(new Texture2D(_CamTex.width, _CamTex.height), new Texture2D(_CamTex.width, _CamTex.height));
         snap2 = new DoubleTexture(new Texture2D(_CamTex.width, _CamTex.height), new Texture2D(_CamTex.width, _CamTex.height));
         diff = new Texture2D(_CamTex.width, _CamTex.height);
+        snap = new Texture2D(_CamTex.width, _CamTex.height);
+        snap_cor = new Texture2D(_CamTex.width, _CamTex.height);
+        snap_bw = new Texture2D(_CamTex.width, _CamTex.height);
         snap_prev = new Texture2D(_CamTex.width, _CamTex.height);
+        body = GameObject.Find("Body");
+        lastNfacesizes = new int[4];
 
     }
 
@@ -94,24 +101,19 @@ public partial class VideoCapture : MonoBehaviour
     {
         _CaptureCounter++;
         updateFrequency = 6;
-        // Debug.Log(updateFrequency); 
+        //Debug.Log(updateFrequency);
 
-        //ReDraw the Image 
+        //ReDraw the Image
         snap.SetPixels(_CamTex.GetPixels());
         snap.Apply();
-        curMoment = _CaptureCounter;
-        //snap = LoadPNG("D:/Man.jpg"); 
 
-        //Call Face Recognition 
-        if (_CaptureCounter % updateFrequency == 0 && _CaptureCounter > updateFrequency)
-        {
-            //Debug.Log(prevMoment + " " + curMoment + " " + (curMoment - prevMoment));
-        }
-        //firstImageAverage = FaceRecognition(_CamTex.width, _CamTex.height, diff);
+        //snap = LoadPNG("D:/Man.jpg");
 
+        //Call Face Recognition
+        firstImageAverage = FaceRecognition(_CamTex.width, _CamTex.height);
         if (firstImageAverage != -1)
         {
-            //Debug.Log(lastZero + " " + firstImageAverage); 
+            //Debug.Log(lastZero + " " + firstImageAverage);
             if (lastZero == 0 && firstImageAverage > 0)
             {
                 rotationState = "start";
@@ -129,78 +131,71 @@ public partial class VideoCapture : MonoBehaviour
                 rotationState = "continue";
             }
         }
-
         if (_CaptureCounter % updateFrequency == 0)
         {
-            // Debug.Log(rotationState); 
+            //  Debug.Log(rotationState);
         }
-
         if (firstImageAverage == 0)
         {
-            //Debug.Log(firstImageAverage); 
+            //Debug.Log(firstImageAverage);
         }
-
-        deltaUpdate = 6;
-        if (_CaptureCounter % updateFrequency == (updateFrequency - deltaUpdate))
+        if (_CaptureCounter % updateFrequency == 0)
         {
-            //Debug.Log("updateFrequency: " + updateFrequency + "\n deltaUpdate: " + deltaUpdate);
             snap_prev.SetPixels(_CamTex.GetPixels());
             snap_prev.Apply();
-            prevMoment = _CaptureCounter;
             angle = 0;
-            //Debug.Log("zero"); 
+            //Debug.Log("zero");
         }
 
 
-        //bool stop = false; 
+        //bool stop = false;
         if (firstImageAverage > 0)
         {
-            //Debug.Log(firstImageAverage); 
+            //Debug.Log(firstImageAverage);
             if (_CaptureCounter > updateFrequency)
             {
 
-                //Debug.Log(firstImageAverage + " " + lastImageAverage); 
+                //Debug.Log(firstImageAverage + " " + lastImageAverage);
                 angle = -(lastImageAverage - firstImageAverage) * 0.25f;
                 //transform.RotateAround(new Vector3(0, 0, 12), Vector3.up, angle);
-                //Debug.Log(angle); 
+                //Debug.Log(angle);
             }
             lastImageAverage = firstImageAverage;
         }
         if (firstImageAverage != -1)
         {
-            //Debug.Log(lastImageAverage + " " + firstImageAverage); 
+            //Debug.Log(lastImageAverage + " " + firstImageAverage);
             lastZero = firstImageAverage;
         }
 
-        //Smoothing the rotation 
-        // if (!stop) 
+        //Smoothing the rotation
+        // if (!stop)
         if (_CaptureCounter % updateFrequency != 0 && _CaptureCounter > FPS)
         {
 
             if (rotationState.Equals("start"))
             {
-                float angle_cor = startRotation(_CaptureCounter % updateFrequency) * angle;
-                transform.RotateAround(new Vector3(0, 0, 8), Vector3.up, angle_cor);
+                float angle_cor = startRotation(_CaptureCounter % updateFrequency) * angle * rotateSpeed/10;
+                body.transform.RotateAround(Vector3.up, (-1) * angle_cor / 360 * 2 * (float)System.Math.PI);
             }
             else if (rotationState.Equals("stop"))
             {
-                float angle_cor = startRotation(_CaptureCounter % updateFrequency + updateFrequency) * angle;
-                transform.RotateAround(new Vector3(0, 0, 8), Vector3.up, angle_cor);
+                float angle_cor = startRotation(_CaptureCounter % updateFrequency + updateFrequency) * angle * rotateSpeed/10;
+                body.transform.RotateAround(Vector3.up, (-1) * angle_cor / 360 * 2 * (float)System.Math.PI);
             }
             else if (rotationState.Equals("continue"))
             {
-                transform.RotateAround(new Vector3(0, 0, 8), Vector3.up, angle / (updateFrequency - 1));
+                body.transform.RotateAround(Vector3.up, (-1) * angle * rotateSpeed / 10 / (updateFrequency - 1) / 360 * 2 * (float)System.Math.PI);
             }
             else if (rotationState.Equals("stay"))
             {
 
             }
-            //float angle_cor = deltaAngle(_CaptureCounter % updateFrequency) * angle; 
-            //transform.RotateAround(new Vector3(0, 0, 12), Vector3.up, angle_cor); 
-            //transform.RotateAround(new Vector3(0, 0, 12), Vector3.up, angle/(updateFrequency)); 
+            //float angle_cor = deltaAngle(_CaptureCounter % updateFrequency) * angle;
+            //transform.RotateAround(new Vector3(0, 0, 12), Vector3.up, angle_cor);
+            //transform.RotateAround(new Vector3(0, 0, 12), Vector3.up, angle/(updateFrequency));
         }
     }
-
     float deltaAngle(int stage)
     {
         float result = Mathf.Sin(Mathf.PI / (2 * updateFrequency - 1) * Mathf.Sin((2 * stage - 1) * (Mathf.PI / (2 * updateFrequency - 1))));
@@ -308,7 +303,7 @@ public partial class VideoCapture : MonoBehaviour
             minCanny = 50;
         }
 
-        Debug.Log(minCanny + " " + textureBrightness);
+        //Debug.Log(minCanny + " " + textureBrightness);
         for (int i = 0; i < width; i++)
         {
             for (int j = 0; j < height; j++)
@@ -469,23 +464,16 @@ public partial class VideoCapture : MonoBehaviour
     void OnGUI()
     {
 
-        GUI.DrawTexture(new Rect(0, 0, 320, 240), snap);
-        GUI.DrawTexture(new Rect(320, 0, 320, 240), edgeSnap);
-        GUI.DrawTexture(new Rect(640, 0, 320, 240), diff);
 
-        GUI.DrawTexture(new Rect(0, 480, 320, 240), edgeSobel);
-        GUI.DrawTexture(new Rect(320, 480, 320, 240), edgeXSnap);
-        GUI.DrawTexture(new Rect(640, 480, 320, 240), edgeYSnap);
-
-        if (_CaptureCounter > 7)
+        if (showCamera)
         {
+            GUI.DrawTexture(new Rect(0, 0, 320, 240), snap);
             //GUI.DrawTexture(new Rect(0, 240, 320, 240), snap1.Texture);
             //GUI.DrawTexture(new Rect(320, 240, 320, 240), snap2.Texture);
             //GUI.DrawTexture(new Rect(0, 480, 320, 240), snap1.Edge);
             // GUI.DrawTexture(new Rect(320, 480, 320, 240), snap2.Edge);
         }
-
-        GUI.DrawTexture(new Rect(320, 240, 320, 240), edgeColorSnap);
+        
         /*
         try
         {
@@ -687,54 +675,77 @@ public partial class VideoCapture : MonoBehaviour
 
     void Update()
     {
-        _CaptureCounter++;
-        if (_CaptureCounter % 3 == 0)
-        {
-            Debug.Log(_CaptureCounter);
-            snap1 = newSnap();
-            //Debug.Log(brightness(snap));
-        }
-        if (_CaptureCounter % 3 == 2)
-        {
-            snap2 = newSnap();
-            diff = difference(snap1, snap2);
-        }
-        if (_CaptureCounter > 10)
-        {
-            //TakeSnapshot();
-        }
-        /*
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
         if (Input.GetMouseButton(0))
         {
-            Vector3 position = transform.position;
-            // Debug.Log ("camera " + position); 
-            //ModelMover.model.Rotate (new Vector3 (0, Input.GetAxis("Mouse X") * rotateSpeed, 0)); 
-            //Debug.Log ("cylinder" + CameraMover.camera.position); 
-            transform.RotateAround(new Vector3(0, 0, 0), Vector3.up, Input.GetAxis("Mouse X") * rotateSpeed);
-            //transform.RotateAround( new Vector3(1, position.y, -(position.z)/position.x), Vector3.right, Input.GetAxis("Mouse Y") * rotateSpeed ); 
-
-
-        } else
-        {
+            //Vector3 position = transform.position;
+            // Debug.Log ("camera " + position);
+            //ModelMover.model.Rotate (new Vector3 (0, Input.GetAxis("Mouse X") * rotateSpeed, 0));
+            //Debug.Log ("cylinder" + CameraMover.camera.position);
+            //transform.RotateAround (new Vector3 (0, 0, 8), Vector3.up, Input.GetAxis ("Mouse X") * rotateSpeed);
+            body.transform.RotateAround(Vector3.up, ((-1) * Input.GetAxis("Mouse X") * rotateSpeed) / 360 * 2 * (float)System.Math.PI);//this sht sometimes looks дерганым я хз как фикстить
+            body.transform.RotateAround(Vector3.right, (Input.GetAxis("Mouse Y") * rotateSpeed) / 360 * 2 * (float)System.Math.PI);
+            if (Input.GetKey(KeyCode.LeftControl))
+            {
+                body.transform.RotateAround(Vector3.forward, (Input.GetAxis("Mouse Y") * rotateSpeed) / 360 * 2 * (float)System.Math.PI);
+            }
+            //transform.RotateAround( new Vector3(1, position.y, -(position.z)/position.x), Vector3.right, Input.GetAxis("Mouse Y") * rotateSpeed );
 
         }
-        */
+        else if (scroll != 0 && (((Vector3.Distance(GetComponent<Camera>().transform.position, body.transform.position) > 15 && scroll > 0)) || (scroll < 0 && Vector3.Distance(GetComponent<Camera>().transform.position, body.transform.position) < 200)))
+        {
+            //GetComponent<Camera> ().transform.LookAt (body.transform.position);
+            Debug.Log(GetComponent<Camera>().transform.position);
+            float xpos = GetComponent<Camera>().transform.position.x;
+            float ypos = GetComponent<Camera>().transform.position.y;
+            float zpos = GetComponent<Camera>().transform.position.z;
+            //GetComponent<Camera> ().transform.position = new Vector3( xpos + scroll, ypos/xpos * (xpos + scroll), zpos/xpos * (xpos + scroll)) ;
+            Vector3 translation = new Vector3((body.transform.position.x - xpos) / 10 * scroll, (body.transform.position.y - 5 - ypos) / 10 * scroll, (body.transform.position.z - zpos) / 10 * scroll);
+            GetComponent<Camera>().transform.Translate(translation);
+            /* 
+                GetComponent<Camera> ().transform.position = new Vector3(  xpos  - 1.4f/5f * System.Math.Sign(scroll),
+                ypos + 2.2f/5f * System.Math.Sign(scroll), zpos + 17.1f/5f * System.Math.Sign(scroll)) ;
+                */
+            Debug.Log(GetComponent<Camera>().transform.position);
+        }
+        else if (Input.GetMouseButton(1))
+        {
+            body.transform.position += new Vector3(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"), 0);
+        }
+        else if (Input.GetKeyDown(KeyCode.R))
+        { // do not do it if you want the code working
+            GetComponent<Camera>().transform.LookAt(body.transform.position);
+            Debug.Log(GetComponent<Camera>().transform.rotation);
+            //body.transform.RotateAround (Vector3.up, (float)System.Math.PI);
+        }
+        else
+        {
+
+            TakeSnapshot();
+        }
+        if (Input.GetKeyDown("space"))
+        {
+            showCamera = !showCamera;
+        }
+
+
         if (_CaptureCounter % 100 == 99)
         {
-            /* 
-            float summ = 0; 
-            for (int i = 0; i < _CamTex.width; i++) { 
-            for (int j = 0; j < _CamTex.height; j++) { 
-            summ += snap.GetPixel (i, j).grayscale; 
-            } 
-            } 
-            //Debug.Log (summ / (_CamTex.width * _CamTex.height) + " average"); 
-            */
-            // Debug.Log (snap.GetPixel (56, 176).grayscale + " 56, 176"); 
-        }
-        //Call Snapshot 
 
-        //Exit by pressing ESC button 
+            /*
+            float summ = 0;
+            for (int i = 0; i < _CamTex.width; i++) {
+                for (int j = 0; j < _CamTex.height; j++) {
+                    summ += snap.GetPixel (i, j).grayscale;
+                }
+            }
+            //Debug.Log (summ / (_CamTex.width * _CamTex.height) + " average");
+        */
+            //  Debug.Log (snap.GetPixel (56, 176).grayscale + " 56, 176");
+        }
+        //Call Snapshot
+
+        //Exit by pressing ESC button
         if (Input.GetKeyDown(KeyCode.Escape))
             Application.Quit();
     }
