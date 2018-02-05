@@ -163,16 +163,7 @@ public partial class VideoCapture : MonoBehaviour
                         }
                         for (int k = 0; k < i; k++)
                         {
-                            if (j == maxIcol[k] - 1 || j == maxIcol[k] + 1 ||
-                                j == maxIcol[k] - 2 || j == maxIcol[k] + 2 ||
-                                j == maxIcol[k] - 3 || j == maxIcol[k] + 3 ||
-                                j == maxIcol[k] - 4 || j == maxIcol[k] + 4 ||
-                                j == maxIcol[k] - 5 || j == maxIcol[k] + 5 ||
-                                j == maxIcol[k] - 6 || j == maxIcol[k] + 6 ||
-                                j == maxIcol[k] - 7 || j == maxIcol[k] + 7 ||
-                                j == maxIcol[k] - 8 || j == maxIcol[k] + 8 ||
-                                j == maxIcol[k] - 9 || j == maxIcol[k] + 9 ||
-                                j == maxIcol[k] - 10 || j == maxIcol[k] + 10)
+                            if (j <= maxIcol[k] + 10 && j >= maxIcol[k] - 10)
                             {
                                 banned = true;
                                 break;
