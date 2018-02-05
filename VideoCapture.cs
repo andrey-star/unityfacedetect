@@ -50,7 +50,7 @@ public partial class VideoCapture : MonoBehaviour
     private string _SavePath = "D:/WebCam/";
     private int _CaptureCounter = 0;
     float angle = 0;
-    int rotateSpeed = 5;
+    int rotateSpeed = 7;
     public int prevMoment = 0;
     public int curMoment = 0;
     public string[] strArr = new string[240];
