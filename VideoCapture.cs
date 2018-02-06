@@ -216,6 +216,10 @@ public partial class VideoCapture : MonoBehaviour
         return result;
     }
 
+/* Алгоритм Кенни. Оставляются толькло локальные максимумы.
+Для этого определяется направление границы.
+(Не подошел по производительности)
+
     public static float[,] applyMatrix(Texture2D texture, int[,] matrix)
     {
 
@@ -461,36 +465,7 @@ public partial class VideoCapture : MonoBehaviour
     }
 
 
-    void OnGUI()
-    {
-
-
-        if (showCamera)
-        {
-            GUI.DrawTexture(new Rect(0, 0, 320, 240), snap);
-            //GUI.DrawTexture(new Rect(0, 240, 320, 240), snap1.Texture);
-            //GUI.DrawTexture(new Rect(320, 240, 320, 240), snap2.Texture);
-            //GUI.DrawTexture(new Rect(0, 480, 320, 240), snap1.Edge);
-            // GUI.DrawTexture(new Rect(320, 480, 320, 240), snap2.Edge);
-        }
-        
-        /*
-        try
-        {
-            if (snap_cor.GetPixel(0, 0) == Color.red)
-            {
-                GUI.DrawTexture(new Rect(0, 0, 320, 240), snap_cor);
-            }
-
-        }
-        catch (UnassignedReferenceException e) { }
-        */
-        /*
-            for (int i = 0; i < strArr.Length; i++ )
-                 GUI.Label(new Rect(0, i*10, 200, 10), strArr[i]);
-
-            */
-    }
+   
 
     public Texture2D toGrayscale(Texture2D texture)
     {
@@ -672,7 +647,39 @@ public partial class VideoCapture : MonoBehaviour
 
         return new float[] { r, g, b };
     }
+    */
+    
+     void OnGUI()
+    {
 
+
+        if (showCamera)
+        {
+            GUI.DrawTexture(new Rect(0, 0, 320, 240), snap);
+            //GUI.DrawTexture(new Rect(0, 240, 320, 240), snap1.Texture);
+            //GUI.DrawTexture(new Rect(320, 240, 320, 240), snap2.Texture);
+            //GUI.DrawTexture(new Rect(0, 480, 320, 240), snap1.Edge);
+            // GUI.DrawTexture(new Rect(320, 480, 320, 240), snap2.Edge);
+        }
+        
+        /*
+        try
+        {
+            if (snap_cor.GetPixel(0, 0) == Color.red)
+            {
+                GUI.DrawTexture(new Rect(0, 0, 320, 240), snap_cor);
+            }
+
+        }
+        catch (UnassignedReferenceException e) { }
+        */
+        /*
+            for (int i = 0; i < strArr.Length; i++ )
+                 GUI.Label(new Rect(0, i*10, 200, 10), strArr[i]);
+
+            */
+    }
+    
     void Update()
     {
         float scroll = Input.GetAxis("Mouse ScrollWheel");
